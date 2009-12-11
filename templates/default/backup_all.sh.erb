@@ -1,0 +1,5 @@
+#!/bin/sh
+
+<% @node[:mysql][:instances].each do |instance| %>
+<%= File.join(@node[:mysql][:root], "scripts", "backup_mysql.rb") %> <%= instance[:name] %>
+<% end %>
