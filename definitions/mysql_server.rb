@@ -52,7 +52,7 @@ define :mysql_server, :options => {} do
     :mysqld_error_log => "#{node[:mysql][:root]}/#{params[:name]}/logs/mysql.err",
     :port => "3306",
     :socket_path => "/tmp/mysql.#{params[:name]}.sock",
-    :max_connections => 500,
+    :max_connections => 512,
     :slow_query_log => "#{node[:mysql][:root]}/#{params[:name]}/logs/mysql_slow_queries.log",
     :error_log => "#{node[:mysql][:root]}/#{params[:name]}/logs/mysql.log.err",
     :binlog_dir => "#{node[:mysql][:root]}/#{params[:name]}/binlogs/binlog",
@@ -67,14 +67,17 @@ define :mysql_server, :options => {} do
     :key_buffer => "16M",
     :query_cache_size => "0",
     :pidfile => "#{node[:mysql][:root]}/#{params[:name]}/logs/mysql.pid",
-    :server_id => "1",
+    :server_id => "#{node[:ipaddress].split('.')[-1]}",
     :binlogs_enabled => true,
     :sync_binlog => "1",
     :thread_cache => "64",
     :table_cache => "1024",
     :long_query_time => "2000000",
     :max_allowed_packet => "16M",
-    :percona_patches => false                        
+    :percona_patches => false,
+    :auto_increment_increment => 1,
+    :auto_increment_offset => 1,
+    :log_slave_updates => false
   })
 
   params[:config] = defaults.merge(params[:config])
@@ -85,6 +88,7 @@ define :mysql_server, :options => {} do
     group "mysql"
     mode 0644
     variables(:params => params)
+    not_if { File.exist?(File.join(base_dir, "config", "my.cnf")) }
   end
 
   execute "install empty database" do
@@ -104,6 +108,7 @@ define :mysql_server, :options => {} do
   end
 
   service "mysql_#{params[:name]}" do
+    pattern "mysqld.*#{params[:name]}"
     action [ :enable, :start ] 
   end
 

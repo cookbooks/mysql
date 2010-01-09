@@ -33,8 +33,8 @@ if node[:mysql] && node[:mysql][:instances]
     end
   end
   
-  node[:mysql][:instances].each do |instance|
-    mysql_server instance[:name] do
+  node[:mysql][:instances].each do |name, instance|
+    mysql_server name do
       config instance[:config]
       version instance[:version]
 

@@ -2,6 +2,7 @@
 err-log = <%= @params[:config][:mysqld_error_log] %>
 
 [mysqld]
+<% if @params[:read_only] == 1 -%>read_only = 1<% end -%>
 datadir = <%= @params[:config][:datadir] %>
 socket = <%= @params[:config][:socket_path] %>
 log-slow-queries = <%= @params[:config][:slow_query_log] %>
@@ -13,6 +14,7 @@ port = <%= @params[:config][:port] %>
 <% if @params[:config][:binlogs_enabled] -%>
 log-bin = <%= @params[:config][:binlog_dir] %>
 expire_logs_days = 5
+binlog-ignore-db = test
 binlog-ignore-db = mysql
 sync_binlog = <%= @params[:config][:sync_binlog] %>
 <% end -%>
@@ -40,9 +42,12 @@ max_connect_errors = 99999999
 skip-locking
 innodb_buffer_pool_size = <%= @params[:config][:innodb_buffer_pool_size] %>
 innodb_thread_concurrency = <%= @params[:config][:innodb_thread_concurrency] %>
-<% if @node[:mysql][:percona_patches] %>
-log_slow_verbosity = "query_plan,innodb"
-<% end %>
+auto_increment_increment = <%= @params[:config][:auto_increment_increment] %>
+auto_increment_offset = <%= @params[:config][:auto_increment_offset] %>
+<% if @node[:mysql][:percona_patches] -%>log_slow_verbosity = "query_plan,innodb"<% end -%>
+<% if @params[:config][:character_set] -%>character_set_server = <%= @params[:config][:character_set] %><% end -%>
+<% if @params[:config][:collation] -%>collation_server = <%= @params[:config][:collation] %><% end -%>
+<% if @params[:config][:log_slave_updates] -%>log_slave_updates<% end -%>
 
 <% if @params[:backup_location] -%>
 [xtrabackup]
