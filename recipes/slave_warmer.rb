@@ -10,7 +10,7 @@ if node[:mysql][:instances]
         source "bluepill_slave_warmer.conf.erb"
         user "#{name}_ro"
         password instance[:users][name + "_ro"][:password]
-        port instance[:config][:port]
+        port slave[:port]
         instance name
         database "#{name}_production"
         host slave[:host]

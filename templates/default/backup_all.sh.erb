@@ -1,5 +1,6 @@
 #!/bin/sh
 
 <% @node[:mysql][:instances].each do |name, instance| %>
+<% next if @node[:mysql][:instances][name][:backup_location].nil? %>
 <%= File.join(@node[:mysql][:root], "scripts", "backup_mysql.rb") %> <%= name %>
 <% end %>

@@ -2,10 +2,17 @@
 err-log = <%= @params[:config][:mysqld_error_log] %>
 
 [mysqld]
+<% if @params[:version] == '5.1.42-9-percona' %>
+ignore-builtin-innodb
+plugin-load=innodb=ha_innodb.so
+slow_query_log = <%= @params[:config][:slow_query_log] %>
+<% else %>
+log-slow-queries = <%= @params[:config][:slow_query_log] %>
+innodb_log_arch_dir = <%= @params[:config][:innodb_log_dir] %>
+<% end %>
 <% if @params[:read_only] == 1 -%>read_only = 1<% end -%>
 datadir = <%= @params[:config][:datadir] %>
 socket = <%= @params[:config][:socket_path] %>
-log-slow-queries = <%= @params[:config][:slow_query_log] %>
 log-error = <%= @params[:config][:mysqld_error_log] %>
 pid-file = <%= @params[:config][:pidfile] %>
 server-id = <%= @params[:config][:server_id] %>
@@ -24,7 +31,6 @@ innodb_file_per_table
 <% end -%>
 innodb_data_file_path = ibdata1:10M:autoextend
 innodb_log_group_home_dir = <%= @params[:config][:innodb_log_dir] %>
-innodb_log_arch_dir = <%= @params[:config][:innodb_log_dir] %>
 innodb_log_files_in_group = 2
 innodb_log_file_size = <%= @params[:config][:innodb_log_file_size] %>
 innodb_log_buffer_size = <%= @params[:config][:innodb_log_buffer_size] %>
