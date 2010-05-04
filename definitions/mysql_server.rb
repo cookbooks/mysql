@@ -42,7 +42,7 @@ define :mysql_server, :options => {} do
     user "root"
     group "root"
     cwd "/tmp"
-    command "curl http://dist/packages/mysql/mysql-#{params[:version]}.tar.bz2 | tar -xjC #{node[:mysql][:root]}/server -f -"
+    command "tar -xjC #{node[:mysql][:root]}/server -f /home/system/pkg/mysql/mysql-#{params[:version]}.tar.bz2"
     creates "#{node[:mysql][:root]}/server/#{params[:version]}"
   end
   
@@ -82,13 +82,19 @@ define :mysql_server, :options => {} do
 
   params[:config] = defaults.merge(params[:config])
   
-  template "#{base_dir}/config/my.cnf" do
+  template "#{base_dir}/config/my.cnf.chef" do
     source "mysql.cnf.erb"
     owner "mysql"
     group "mysql"
     mode 0644
     variables(:params => params)
-    not_if { File.exist?(File.join(base_dir, "config", "my.cnf")) }
+  end
+
+  execute "copy chef mysql config" do
+    user "mysql"
+    group "mysql"
+    command "cp #{base_dir}/config/my.cnf.chef #{base_dir}/config/my.cnf"
+    creates "#{base_dir}/config/my.cnf"
   end
 
   execute "install empty database" do
@@ -114,5 +120,25 @@ define :mysql_server, :options => {} do
 
   if params[:backup_location]
     package "xtrabackup"
+  end
+
+  root_password = search(:credentials, "id:mysql").first[:default_root_password]
+  db = search(:mysql, "id:#{params[:name]}").first
+  
+  execute "mysql-install-privileges" do
+    command "/usr/bin/mysql -u root -p#{root_password} < #{base_dir}/config/grants.sql"
+    action :nothing
+  end
+
+  template "#{base_dir}/config/grants.sql" do
+    source "grants.sql.erb"
+    owner "root"
+    group "root"
+    mode "0600"
+    variables({:user => params[:name], :password => db[:password],
+               :root_password => root_password, :host => "%#{db[:short_name]}%",
+               :database => "#{params[:name]}_production"
+             })
+    notifies :run, resources(:execute => "mysql-install-privileges"), :immediately
   end
 end

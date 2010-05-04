@@ -1,4 +1,3 @@
-
 script_dir = File.join(node[:mysql][:root], "scripts").to_s
 
 if node[:mysql] && node[:mysql][:instances]
@@ -23,7 +22,7 @@ if node[:mysql] && node[:mysql][:instances]
       source "backup_all.sh.erb"
       owner "root"
       group "root"
-      mode "0700"    
+      mode "0700"
     end
     
     cron "backup mysql databases" do
