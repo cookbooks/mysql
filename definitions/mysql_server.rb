@@ -1,9 +1,21 @@
 define :mysql_server, :options => {} do
   base_dir = "#{node[:mysql][:root]}/#{params[:name]}"
+  mysql_dir = "#{node[:mysql][:root]}/server/#{params[:version]}"
   params[:config] ||= {}
   directories = [ base_dir ]
-  
-  %W(binlogs config data logs).each do |d|
+  backup = false
+
+  db = search(:mysql, "id:#{params[:name]}").first
+  root_password = db[:root_password] || search(:credentials, "id:mysql").first[:default_root_password]
+
+  directory "/u/mysql/scripts" do
+    owner "root"
+    group "root"
+    mode 00700
+    recursive true
+  end
+
+  %W(config data logs).each do |d|
     directories << "#{base_dir}/#{d}"
   end
 
@@ -28,7 +40,18 @@ define :mysql_server, :options => {} do
       recursive true
     end
   end
-  
+
+  if params[:config][:binlog_dir]
+    directory params[:config][:binlog_dir] do
+      owner "mysql"
+      group "mysql"
+      mode 0755
+      recursive true
+    end
+  else
+    directories << "#{base_dir}/binlogs"
+  end
+
   directories.each do |dir|
     directory dir do
       owner "mysql"
@@ -43,7 +66,7 @@ define :mysql_server, :options => {} do
     group "root"
     cwd "/tmp"
     command "tar -xjC #{node[:mysql][:root]}/server -f /home/system/pkg/mysql/mysql-#{params[:version]}.tar.bz2"
-    creates "#{node[:mysql][:root]}/server/#{params[:version]}"
+    creates mysql_dir
   end
   
   defaults = Mash.new({
@@ -67,7 +90,7 @@ define :mysql_server, :options => {} do
     :key_buffer => "16M",
     :query_cache_size => "0",
     :pidfile => "#{node[:mysql][:root]}/#{params[:name]}/logs/mysql.pid",
-    :server_id => "#{node[:ipaddress].split('.')[-1]}",
+    :server_id => "#{node[:ipaddress].split('.').last}#{params[:config][:port] || '3306'}",
     :binlogs_enabled => true,
     :sync_binlog => "1",
     :thread_cache => "64",
@@ -77,7 +100,7 @@ define :mysql_server, :options => {} do
     :percona_patches => false,
     :auto_increment_increment => 1,
     :auto_increment_offset => 1,
-    :log_slave_updates => false
+    :log_slave_updates => true,
   })
 
   params[:config] = defaults.merge(params[:config])
@@ -110,6 +133,7 @@ define :mysql_server, :options => {} do
     owner "root"
     group "root"
     mode 0700
+    backup false
     variables(:options => params, :node => node)
   end
 
@@ -118,16 +142,60 @@ define :mysql_server, :options => {} do
     action [ :enable, :start ] 
   end
 
-  if params[:backup_location]
+  if params[:backup_location] && params[:perform_backups]
     package "xtrabackup"
+    package "lzop"
+
+    directory params[:backup_location] do
+      owner "root"
+      group "root"
+      mode 00700
+    end
+
+    directory "#{base_dir}/scripts" do
+      owner "root"
+      group "root"
+      mode 00700
+    end
+
+    template "#{base_dir}/scripts/backup.sh" do
+      source "backup.sh.erb"
+      owner "root"
+      group "root"
+      mode 00700
+      backup false
+      variables(:name => params[:name],
+                :base_dir => base_dir,
+                :backup_password => root_password,
+                :destination => params[:backup_location],
+                :socket => "/tmp/mysql.#{params[:name]}.sock")
+    end
+
+    backup = true
   end
 
-  root_password = search(:credentials, "id:mysql").first[:default_root_password]
-  db = search(:mysql, "id:#{params[:name]}").first
-  
+  if backup
+    template "/u/mysql/scripts/backup_all.sh" do
+      source "backup_all.sh.erb"
+      owner "root"
+      group "root"
+      mode 00700
+      backup false
+    end
+
+    cron "backup databases" do
+      minute 0
+      hour 4
+      command "/u/mysql/scripts/backup_all.sh"
+      user "root"
+      mailto "sysadmins@37signals.com"
+    end
+  end
+
   execute "mysql-install-privileges" do
-    command "/usr/bin/mysql -u root -p#{root_password} < #{base_dir}/config/grants.sql"
+    command "sleep 15 ; #{mysql_dir}/bin/mysql -u root -S /tmp/mysql.#{params[:name]}.sock < #{base_dir}/config/grants.sql ; touch #{base_dir}/config/.granted"
     action :nothing
+    creates "#{base_dir}/config/.granted"
   end
 
   template "#{base_dir}/config/grants.sql" do
@@ -135,9 +203,10 @@ define :mysql_server, :options => {} do
     owner "root"
     group "root"
     mode "0600"
-    variables({:user => params[:name], :password => db[:password],
-               :root_password => root_password, :host => "%#{db[:short_name]}%",
-               :database => "#{params[:name]}_production"
+    variables({:user => params[:name],
+               :database => "#{params[:name]}_production",
+               :root_password => root_password, 
+               :config => db
              })
     notifies :run, resources(:execute => "mysql-install-privileges"), :immediately
   end
