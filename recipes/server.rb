@@ -2,7 +2,7 @@
 # Cookbook Name:: mysql
 # Recipe:: default
 #
-# Copyright 2008-2009, Opscode, Inc.
+# Copyright 2008-2011, Opscode, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ end
 unless platform?(%w{debian ubuntu})
 
   execute "assign-root-password" do
-    command "/usr/bin/mysqladmin -u root password #{node[:mysql][:server_root_password]}"
+    command "/usr/bin/mysqladmin -u root password #{node['mysql']['server_root_password']}"
     action :run
     only_if "/usr/bin/mysql -u root -e 'show databases;'"
   end
@@ -116,7 +116,7 @@ rescue
 end
 
 execute "mysql-install-privileges" do
-  command "/usr/bin/mysql -u root #{node[:mysql][:server_root_password].empty? ? '' : '-p' }#{node[:mysql][:server_root_password]} < #{grants_path}"
+  command "/usr/bin/mysql -u root #{node['mysql']['server_root_password'].empty? ? '' : '-p' }#{node['mysql']['server_root_password']} < #{grants_path}"
   action :nothing
   subscribes :run, resources("template[/etc/mysql/grants.sql]"), :immediately
 end
