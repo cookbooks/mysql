@@ -22,9 +22,9 @@
 include_recipe "mysql::client"
 
 # generate all passwords
-node.set_unless['mysql']['server_debian_password'] = secure_password
-node.set_unless['mysql']['server_root_password']   = secure_password
-node.set_unless['mysql']['server_repl_password']   = secure_password
+node.default['mysql']['server_debian_password'] = secure_password
+node.default['mysql']['server_root_password']   = secure_password
+node.default['mysql']['server_repl_password']   = secure_password
 
 if platform?(%w{debian ubuntu})
 
@@ -61,7 +61,7 @@ package node['mysql']['package_name'] do
   action :install
 end
 
-directory "#{node['mysql']['conf_dir']}/mysql/conf.d" do
+directory "#{node['mysql']['conf_dir']}/conf.d" do
   owner "mysql"
   group "mysql"
   action :create
